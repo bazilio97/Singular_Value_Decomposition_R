@@ -1,111 +1,75 @@
-############################################################
-# Copyright (c) June 2023.
-# Dmytro Kotov, mail to dmytro.kotov97@gmail.com
-# ================================================================
-# README for SVD-based Calculation in R
-# ================================================================
-#
-# This script computes a singular value decomposition-like approximation
-# using eigen decomposition on the matrix ATA, followed by adjustment
-# based on small eigenvalues and the construction of the 'sigma' matrix
-# for the final approximation.
-#
-# The following steps outline the key operations and their purpose:
-#
-# 1. **ATA Calculation:**
-#    - Compute ATA where A is the input matrix.
-#    - ATA is a square matrix that encodes important properties of A.
-#
-# 2. **Eigen Decomposition of ATA:**
-#    - Perform eigen decomposition to obtain eigenvalues and eigenvectors.
-#    - `ATA_e$values` contains eigenvalues (λ), and `ATA_e$vectors` contains eigenvectors (U).
-#
-# 3. **Thresholding of Eigenvalues:**
-#    - Eigenvalues less than 10^-12 are considered as numerical noise and are set to zero.
-#
-# 4. **Sigma Matrix Construction:**
-#    - Only positive square roots of eigenvalues are used to form a diagonal matrix `r` (the "sigma" matrix).
-#    - A conditional check ensures proper alignment of the matrix dimensions by adjusting its columns if necessary.
-#
-# 5. **Sigma Function Definition:**
-#    - A helper function `sigma(v)` creates a diagonal matrix using the square root of non-zero eigenvalues.
-#    - If the last eigenvalue is zero, the last column of the matrix is removed.
-#
-# 6. **Calculation of Approximation:**
-#    - `v_mat` computes the matrix approximation by dividing the product of matrix A and eigenvectors by the corresponding singular values.
-#    - Finally, `svd.matrix` is obtained by multiplying `v_mat` with the matrix `r` and the transpose of the eigenvector matrix.
-#
-# 7. **Output:**
-#    - The result `svd.matrix` is the matrix that approximates the singular value decomposition of the original matrix A.
-#
-# ================================================================
-# Detailed Code Walkthrough:
-# ================================================================
-#
-# # Step 1: Compute ATA (A Transpose A)  
-ATA <- t(A) %*% A;
+Singular Value Decomposition (SVD) 
+=======================================================
 
-# # Step 2: Eigen decomposition of ATA  
-ATA_e <- eigen(ATA);
+This project demonstrates computing the Singular Value Decomposition (SVD) of a matrix in R. 
+SVD is a fundamental technique in linear algebra used for matrix factorization, dimensionality reduction, 
+and solving systems of linear equations.
 
-# Extract eigenvalues (λ) and eigenvectors (U)
-u_mat <- ATA_e$vectors;
-lambda <- ATA_e$values;
+---
 
-# # Step 3: Threshold small eigenvalues  
-# Set eigenvalues smaller than 10^-12 to zero (numerical noise threshold)
-lambda[lambda < 10^-12] <- 0;
+Workflow Overview
+-----------------
 
-# # Step 4: Sigma matrix construction  
-# Determine which eigenvalues correspond to non-zero singular values
-sigma_indx <- sqrt(lambda) > 0;
+1. Define the Matrix
+--------------------
+- The matrix A is defined either manually or using sequences.
+- Examples:
+  - A <- matrix(c(2,5,-4,6,3,0), nrow=2, ncol=3)
+  - A <- matrix(1:9, nrow=3, ncol=3)
 
-# Construct the "sigma" matrix (diagonal matrix of non-zero singular values)
-r <- diag(sqrt(lambda)[sigma_indx]);
+2. Compute A^T * A
+------------------
+- ATA <- t(A) %*% A
+- This is used to compute eigenvalues and eigenvectors, which are needed for SVD.
 
-# Ensure correct matrix dimensions by adjusting rows and columns
-if (ncol(r) > nrow(u_mat)) r <- r[,-ncol(r)];
-if (ncol(r) < nrow(u_mat)) r <- cbind(r, rep(0, nrow(r)));
+3. Eigen Decomposition
+---------------------
+- ATA_e <- eigen(ATA)
+- u_mat <- ATA_e$vectors
+- lambda <- ATA_e$values
+- Very small eigenvalues (less than 1e-12) are set to zero to avoid numerical instability.
 
-# # Step 5: Define sigma function  
-# This function constructs a diagonal matrix for singular values
-sigma <- function(v)
-{
-   matrix <- diag(sqrt(v));
-   
-   k <- length(v);
-   if (v[k] == 0)
-   {
-      matrix <- matrix[,-k];  # Remove the last column if eigenvalue is zero
-   }
-   
-}
+4. Construct Sigma Matrix
+------------------------
+- sigma_indx <- sqrt(lambda) > 0
+- r <- diag(sqrt(lambda)[sigma_indx])
+- Adjustments are made if the dimensions of r do not match u_mat.
+- sigma() function handles zero singular values by removing corresponding columns.
 
-# # Step 6: Calculate matrix approximation  
-# Use mapply to apply the sigma function across the relevant eigenvalues and eigenvectors
-v_mat <- mapply(function(sigma, u) A %*% u / sigma, sqrt(lambda)[sigma_indx], asplit(u_mat[,sigma_indx], 2));
+5. Compute V Matrix
+------------------
+- v_mat <- mapply(function(sigma, u) A %*% u / sigma, sqrt(lambda)[sigma_indx], asplit(u_mat[, sigma_indx], 2))
+- This calculates the left singular vectors (V) from A, eigenvectors (U), and singular values (Sigma).
 
-# # Final approximation of the matrix (SVD-like result)
-svd.matrix <- round(v_mat %*% r %*% t(u_mat));
+6. Reconstruct Original Matrix
+------------------------------
+- svd.matrix <- round(v_mat %*% r %*% t(u_mat))
+- Reconstructed matrix approximates the original matrix using the SVD components.
 
-# Output the approximation matrix  
-# svd.matrix is the result of the operation, which approximates A
-#
-# ================================================================
-# How to Use:
-# ================================================================
-#
-# 1. Replace the matrix `A` with your data matrix before running the code.
-# 2. The final result will be stored in the variable `svd.matrix`, which approximates the singular value decomposition of A.
-# 3. You can visualize or analyze `svd.matrix` depending on your needs.
-#
-# ================================================================
-# Notes:
-# ================================================================
-#
-# - The precision of the approximation depends on the choice of the threshold (10^-12).
-# - This script provides a way to approximate SVD when dealing with large or ill-conditioned matrices.
-#
-# ================================================================
-# END OF DOCUMENTATION
-# ================================================================
+---
+
+Key Functions and Concepts
+--------------------------
+- t(A): Transpose of matrix A
+- eigen(): Computes eigenvalues and eigenvectors
+- diag(): Creates diagonal matrix for singular values
+- mapply(): Applies a function over multiple arguments, used here to compute left singular vectors
+- Sigma (Σ): Diagonal matrix of singular values
+- U and V matrices: Orthogonal matrices from SVD
+- Reconstruction: A ≈ V * Σ * U^T
+
+---
+
+Notes
+-----
+- Small eigenvalues (< 1e-12) are considered zero to handle numerical errors.
+- The code demonstrates SVD computation manually without using R’s built-in svd() function.
+- Rounding is applied for easier comparison and interpretation of reconstructed matrices.
+
+---
+
+Usage
+-----
+1. Define the matrix A.
+2. Run the code to compute ATA, eigenvalues, eigenvectors, singular values, and left singular vectors.
+3. Use the reconstruction step to verify that the original matrix is approximately recovered.
